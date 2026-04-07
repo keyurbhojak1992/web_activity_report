@@ -3,14 +3,39 @@ import numpy as np
 import re
 import io
 import streamlit as st
+import threading
+import time
+import requests
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+# ==========================================
+# 0. KEEP-ALIVE BACKGROUND THREAD
+# ==========================================
+# Replace this with your actual Render URL once you deploy it
+APP_URL = "https://web-activity-report.onrender.com" 
+
+def ping_server():
+    """Pings the app every 10 minutes to prevent the server from sleeping."""
+    while True:
+        try:
+            requests.get(APP_URL)
+        except Exception:
+            pass
+        # Wait 600 seconds (10 minutes) before pinging again
+        time.sleep(600) 
+
+# Start this background thread only once per server startup
+if 'keep_awake_thread' not in st.session_state:
+    thread = threading.Thread(target=ping_server, daemon=True)
+    thread.start()
+    st.session_state['keep_awake_thread'] = True
 
 # ==========================================
 # 1. UI & CONTROL FLAGS
 # ==========================================
 st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
-st.title("💎 Sales Action Report Generator")
+st.title("💎 Web Action Report Generator")
 
 # --- CONTROL BUTTONS (Updated per your request) ---
 FILL_HIGHEST_ACTION = False  # If True, highlights the highest count action cells
