@@ -38,7 +38,7 @@ st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
 st.title("💎 Web Action Report Generator")
 
 # --- CONTROL BUTTONS (Updated per your request) ---
-FILL_HIGHEST_ACTION = False  # If True, highlights the highest count action cells
+FILL_HIGHEST_ACTION = True  # If True, highlights the highest count action cells
 FILL_TYPE_COLUMN = True      # If True, highlights the 'Type' column
 FILL_IP_COUNT = False        # If True, highlights the 'IP Counts' column if >= 5
 OUTPUT_FILE_NAME = 'Report.xlsx'
@@ -167,8 +167,8 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
             final_df.rename(columns={'Zone': 'Type'}, inplace=True)
             final_df['Remark'] = ''
 
-            final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Detail', 'Critical_Search', 'EXCEL', 'MEDIA', 
-                             'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'Grand Total', 'AMT', 'IP Counts', 'Color']
+            final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Critical_Search', 'Detail', 'EXCEL', 'MEDIA', 
+                             'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'AMT', 'IP Counts', 'Grand Total', 'Color']
             final_df = final_df[final_columns]
 
             # Save to an in-memory buffer instead of a file
