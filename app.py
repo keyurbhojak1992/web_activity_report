@@ -13,7 +13,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 # 0. KEEP-ALIVE BACKGROUND THREAD
 # ==========================================
 # Replace this with your actual Render URL once you deploy it
-APP_URL = "https://web-activity-report.onrender.com" 
+APP_URL = "https://your-render-app-name.onrender.com" 
 
 def ping_server():
     """Pings the app every 10 minutes to prevent the server from sleeping."""
@@ -22,10 +22,8 @@ def ping_server():
             requests.get(APP_URL)
         except Exception:
             pass
-        # Wait 600 seconds (10 minutes) before pinging again
         time.sleep(600) 
 
-# Start this background thread only once per server startup
 if 'keep_awake_thread' not in st.session_state:
     thread = threading.Thread(target=ping_server, daemon=True)
     thread.start()
@@ -35,10 +33,10 @@ if 'keep_awake_thread' not in st.session_state:
 # 1. UI & CONTROL FLAGS
 # ==========================================
 st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
-st.title("💎 Web Action Report Generator")
+st.title("💎 Sales Action Report Generator")
 
-# --- CONTROL BUTTONS (Updated per your request) ---
-FILL_HIGHEST_ACTION = True  # If True, highlights the highest count action cells
+# --- CONTROL BUTTONS ---
+FILL_HIGHEST_ACTION = False  # If True, highlights the highest count action cells
 FILL_TYPE_COLUMN = True      # If True, highlights the 'Type' column
 FILL_IP_COUNT = False        # If True, highlights the 'IP Counts' column if >= 5
 OUTPUT_FILE_NAME = 'Report.xlsx'
@@ -47,27 +45,27 @@ OUTPUT_FILE_NAME = 'Report.xlsx'
 # ==========================================
 # 2. FILE UPLOADERS
 # ==========================================
-st.write("Upload your 4 source files below to generate the report.")
-weblog_file = st.file_uploader("1. Upload Weblog Data (Excel)", type=['xlsx'])
-master_file = st.file_uploader("2. Upload Color Master Data (Excel)", type=['xlsx'])
-sales_file = st.file_uploader("3. Upload Sales and Bid Data (Excel)", type=['xlsx'])
-critical_file = st.file_uploader("4. Upload Critical Search Data (Excel)", type=['xlsx'])
+st.write("Upload your source files below to generate the report.")
+weblog_file = st.file_uploader("1. Upload Weblog Data (Excel) *Required*", type=['xlsx'])
+master_file = st.file_uploader("2. Upload Color Master Data (Excel) *Required*", type=['xlsx'])
+sales_file = st.file_uploader("3. Upload Sales and Bid Data (Excel) *Optional*", type=['xlsx'])
+critical_file = st.file_uploader("4. Upload Critical Search Data (Excel) *Required*", type=['xlsx'])
 
-if st.button("Generate Report") and weblog_file and master_file and sales_file and critical_file:
+# Notice: sales_file is removed from this mandatory check line
+if st.button("Generate Report") and weblog_file and master_file and critical_file:
     with st.spinner("Processing data..."):
         try:
             # ==========================================
-            # 3. DATA CLEANING & LOADING
+            # 3. DATA CLEANING & LOADING (with RAM Optimizations)
             # ==========================================
-            logs_df = pd.read_excel(weblog_file)
+            # Optimized loading: Only pull columns we actually use to prevent 503 RAM crash
+            logs_df = pd.read_excel(weblog_file, usecols=['PARTY_COMPANY_NAME', 'EMPLOYEE_SHORT_NAME', 'description', 'ipAddress'])
             master_df = pd.read_excel(master_file)
-            sales_df = pd.read_excel(sales_file)
             critical_df = pd.read_excel(critical_file)
 
             # Clean headers
             logs_df.columns = logs_df.columns.str.strip()
             master_df.columns = master_df.columns.str.strip()
-            sales_df.columns = sales_df.columns.str.strip()
             critical_df.columns = critical_df.columns.str.strip()
 
             if 'Zone' not in master_df.columns:
@@ -80,10 +78,6 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
             master_df['Company Name'] = master_df['Company Name'].astype(str).str.strip().str.upper()
             master_df['Color'] = master_df['Color'].astype(str).str.strip().str.upper()
             master_df['Zone'] = master_df['Zone'].astype(str).str.strip()
-
-            sales_df['Sold Party'] = sales_df['Sold Party'].astype(str).str.strip().str.upper()
-            sales_df['Type'] = sales_df['Type'].astype(str).str.strip().str.upper()
-            sales_df['AMT'] = pd.to_numeric(sales_df['AMT'], errors='coerce').fillna(0)
 
             # ==========================================
             # 4. CRITICAL SEARCH PREP
@@ -147,11 +141,22 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
             report_df = pd.merge(action_counts, ip_counts, on=['PARTY_COMPANY_NAME', 'EMPLOYEE_SHORT_NAME'], how='left')
             report_df.rename(columns={'EMPLOYEE_SHORT_NAME': 'Sales_Person'}, inplace=True)
 
-            valid_sales = sales_df[sales_df['Type'].isin(['SALE', 'BID'])]
-            amt_grouped = valid_sales.groupby('Sold Party')['AMT'].sum().reset_index()
+            # --- OPTIONAL SALES FILE LOGIC ---
+            if sales_file is not None:
+                sales_df = pd.read_excel(sales_file, usecols=['Sold Party', 'Type', 'AMT'])
+                sales_df.columns = sales_df.columns.str.strip()
+                sales_df['Sold Party'] = sales_df['Sold Party'].astype(str).str.strip().str.upper()
+                sales_df['Type'] = sales_df['Type'].astype(str).str.strip().str.upper()
+                sales_df['AMT'] = pd.to_numeric(sales_df['AMT'], errors='coerce').fillna(0)
 
-            report_df = pd.merge(report_df, amt_grouped, left_on='PARTY_COMPANY_NAME', right_on='Sold Party', how='left')
-            report_df['AMT'] = report_df['AMT'].fillna(0) 
+                valid_sales = sales_df[sales_df['Type'].isin(['SALE', 'BID'])]
+                amt_grouped = valid_sales.groupby('Sold Party')['AMT'].sum().reset_index()
+
+                report_df = pd.merge(report_df, amt_grouped, left_on='PARTY_COMPANY_NAME', right_on='Sold Party', how='left')
+                report_df['AMT'] = report_df['AMT'].fillna(0)
+            else:
+                # If no sales file is uploaded, default the AMT column to 0 for everyone
+                report_df['AMT'] = 0
 
             # ==========================================
             # 6. MASTER LIST FILTERING & NEW COLUMNS
@@ -167,11 +172,11 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
             final_df.rename(columns={'Zone': 'Type'}, inplace=True)
             final_df['Remark'] = ''
 
-            final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Critical_Search', 'Detail', 'EXCEL', 'MEDIA', 
-                             'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'AMT', 'IP Counts', 'Grand Total', 'Color']
+            final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Detail', 'Critical_Search', 'EXCEL', 'MEDIA', 
+                             'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'Grand Total', 'AMT', 'IP Counts', 'Color']
             final_df = final_df[final_columns]
 
-            # Save to an in-memory buffer instead of a file
+            # Save to an in-memory buffer
             output = io.BytesIO()
             final_df.to_excel(output, index=False)
             output.seek(0)
@@ -263,7 +268,6 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
                     except: pass
                 ws.column_dimensions[column_letter].width = (max_length + 2) 
 
-            # Save the final styled workbook to a new in-memory buffer
             final_output = io.BytesIO()
             wb.save(final_output)
             final_output.seek(0)
@@ -278,3 +282,6 @@ if st.button("Generate Report") and weblog_file and master_file and sales_file a
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
+else:
+    if st.button("Generate Report"):
+        st.warning("Please upload the required files (Weblog, Color Master, and Critical Search).")
