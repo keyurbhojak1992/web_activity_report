@@ -36,7 +36,7 @@ st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
 st.title("💎 Sales Action Report Generator")
 
 # --- CONTROL BUTTONS ---
-FILL_HIGHEST_ACTION = False  # If True, highlights the highest count action cells
+FILL_HIGHEST_ACTION = True  # If True, highlights the highest count action cells
 FILL_TYPE_COLUMN = True      # If True, highlights the 'Type' column
 FILL_IP_COUNT = False        # If True, highlights the 'IP Counts' column if >= 5
 OUTPUT_FILE_NAME = 'Report.xlsx'
