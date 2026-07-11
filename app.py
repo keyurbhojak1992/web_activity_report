@@ -178,8 +178,8 @@ if st.button("Generate Report"):
                 final_df.rename(columns={'Zone': 'Type'}, inplace=True)
                 final_df['Remark'] = ''
 
-                final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Detail', 'Critical_Search', 'EXCEL', 'MEDIA', 
-                                 'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'Grand Total', 'AMT', 'IP Counts', 'Color']
+                final_columns = ['PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person','Critical_Search',  'Detail', 'EXCEL', 'MEDIA', 
+                                 'Layout', 'NEW ARRIVAL', 'TWIN STONES', 'WISHLIST', 'IP Counts', 'Grand Total', 'AMT', 'Color']
                 final_df = final_df[final_columns]
 
                 # Save to an in-memory buffer
