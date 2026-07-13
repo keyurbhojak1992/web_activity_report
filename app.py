@@ -32,8 +32,8 @@ if 'keep_awake_thread' not in st.session_state:
 # ==========================================
 # 1. UI & CONTROL FLAGS
 # ==========================================
-st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
-st.title("💎 Interactive Sales Report Generator")
+st.set_page_config(page_title="Diamond Web Log Processor", layout="centered")
+st.title("💎 Interactive Web-Activity Report Generator")
 
 FILL_HIGHEST_ACTION = False  
 FILL_TYPE_COLUMN = True      
