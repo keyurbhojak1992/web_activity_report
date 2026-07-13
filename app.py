@@ -14,7 +14,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 # ==========================================
 # 0. KEEP-ALIVE BACKGROUND THREAD
 # ==========================================
-APP_URL = "https://webactivityreport-p2mxvecaaq35ramit9iw6u.streamlit.app" 
+APP_URL = "https://webactivityreport-sw2wddocnegmsucelhpwjd.streamlit.app/" 
 
 def ping_server():
     while True:
@@ -33,13 +33,13 @@ if 'keep_awake_thread' not in st.session_state:
 # 1. UI & CONTROL FLAGS
 # ==========================================
 st.set_page_config(page_title="Diamond Web Log Processor", layout="centered")
-st.title("💎 Interactive Web-Activity Report Generator")
+st.title("💎 Interactive Web Activity Report Generator")
 
 FILL_HIGHEST_ACTION = False  
 FILL_TYPE_COLUMN = True      
 FILL_IP_COUNT = False        
-OUTPUT_FILE_NAME = 'Weblog_Action_Report.xlsm' # Changed to output Macro file
-TEMPLATE_FILE = 'macro_template.xlsm'         # Looks for this in your GitHub repo
+OUTPUT_FILE_NAME = 'Web_Activity_Report.xlsm' 
+TEMPLATE_FILE = 'macro_template.xlsm'         
 
 # ==========================================
 # 2. FILE UPLOADERS
@@ -54,7 +54,6 @@ if st.button("Generate Interactive Report"):
     
     if weblog_file and master_file and critical_file:
         
-        # FATAL ERROR CHECK: Ensure template exists in GitHub before doing any heavy processing
         if not os.path.exists(TEMPLATE_FILE):
             st.error(f"❌ ERROR: '{TEMPLATE_FILE}' is missing! Please upload it to your GitHub repository.")
             st.stop()
@@ -62,7 +61,6 @@ if st.button("Generate Interactive Report"):
         with st.spinner("Crunching data and building macros (this takes time for large files)..."):
             try:
                 # 3. DATA CLEANING & LOADING
-                # Loading full dataset for the macro drill-down
                 logs_df = pd.read_excel(weblog_file)
                 master_df = pd.read_excel(master_file)
                 critical_df = pd.read_excel(critical_file)
@@ -91,25 +89,36 @@ if st.button("Generate Interactive Report"):
                     critical_filtered['Short Name'].dropna().astype(str).str.strip().str.upper().tolist()
                 )
 
-                def extract_action(desc, critical_keys):
-                    if pd.isna(desc) or desc == 'NAN': return 'OTHER'
+                # --- NEW LOGIC: EXTRACT ACTION AND SPECIFIC SHAPES MATCHED ---
+                def extract_action_and_shape(desc, critical_keys):
+                    if pd.isna(desc) or desc == 'NAN': 
+                        return ('OTHER', '')
+                        
                     if 'SEARCHID' in desc or 'SEARCH PERFORMED' in desc:
-                        for kw in critical_keys:
-                            if re.search(r'\b' + re.escape(kw) + r'\b', desc): return 'Critical_Search'
-                        return 'Detail' 
-                    elif any(keyword in desc for keyword in ['VIDEO', 'PHYGITAL', 'CERTIFICATE', 'DETAIL', 'IMAGE', 'PLOTING']): return 'MEDIA'
-                    elif 'EXCEL' in desc: return 'EXCEL'
-                    elif 'LAYOUT' in desc: return 'Layout'
-                    elif 'NEW ARRIVAL' in desc: return 'NEW ARRIVAL'
-                    elif 'TWIN STONES' in desc: return 'TWIN STONES'
-                    elif 'WISHLIST' in desc: return 'WISHLIST'
-                    return 'OTHER'
+                        matches = [kw for kw in critical_keys if re.search(r'\b' + re.escape(kw) + r'\b', desc)]
+                        if matches:
+                            # Returns the action + a comma-separated list of the exact shapes found
+                            return ('Critical_Search', ", ".join(matches))
+                        return ('Detail', '')
+                        
+                    elif any(keyword in desc for keyword in ['VIDEO', 'PHYGITAL', 'CERTIFICATE', 'DETAIL', 'IMAGE', 'PLOTING']): 
+                        return ('MEDIA', '')
+                    elif 'EXCEL' in desc: return ('EXCEL', '')
+                    elif 'LAYOUT' in desc: return ('Layout', '')
+                    elif 'NEW ARRIVAL' in desc: return ('NEW ARRIVAL', '')
+                    elif 'TWIN STONES' in desc: return ('TWIN STONES', '')
+                    elif 'WISHLIST' in desc: return ('WISHLIST', '')
+                    
+                    return ('OTHER', '')
 
-                logs_df['Action'] = logs_df['description'].apply(lambda x: extract_action(x, critical_keywords))
+                extracted = logs_df['description'].apply(lambda x: extract_action_and_shape(x, critical_keywords))
+                logs_df['Action'] = [x[0] for x in extracted]
+                logs_df['Matched_Critical_Shape'] = [x[1] for x in extracted]
                 
-                # Reorder to ensure 'Action' is at the front for the VBA macro to easily find it
+                # Reorder to put 'Action' and 'Matched_Critical_Shape' at the very front of the Weblog Data tab
                 cols = logs_df.columns.tolist()
                 cols.insert(0, cols.pop(cols.index('Action')))
+                cols.insert(1, cols.pop(cols.index('Matched_Critical_Shape')))
                 logs_df = logs_df[cols]
 
                 # 5. DATA AGGREGATION
