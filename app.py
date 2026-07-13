@@ -12,7 +12,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 # ==========================================
 # 0. KEEP-ALIVE BACKGROUND THREAD
 # ==========================================
-APP_URL = "https://your-render-app-name.onrender.com" 
+APP_URL = "https://your-render-app-name.onrender.com" # Replace if using Render
 
 def ping_server():
     """Pings the app every 10 minutes to prevent the server from sleeping."""
@@ -35,10 +35,10 @@ st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
 st.title("💎 Sales Action Report Generator")
 
 # --- CONTROL BUTTONS ---
-FILL_HIGHEST_ACTION = False  # If True, highlights the highest count action cells
-FILL_TYPE_COLUMN = True      # If True, highlights the 'Type' column
-FILL_IP_COUNT = False        # If True, highlights the 'IP Counts' column if >= 5
-OUTPUT_FILE_NAME = 'Report.xlsx'
+FILL_HIGHEST_ACTION = False  
+FILL_TYPE_COLUMN = True      
+FILL_IP_COUNT = False        
+OUTPUT_FILE_NAME = 'Sales_Action_Report.xlsx'
 # ----------------------------------------------
 
 # ==========================================
@@ -56,17 +56,16 @@ critical_file = st.file_uploader("4. Upload Critical Search Data (Excel) *Requir
 if st.button("Generate Report"):
     
     if weblog_file and master_file and critical_file:
-        with st.spinner("Processing data..."):
+        with st.spinner("Processing data (this may take a moment for large files)..."):
             try:
                 # ==========================================
                 # 3. DATA CLEANING & LOADING
                 # ==========================================
-                # Load weblog data (keeping descriptions for Critical Search extraction)
+                # Loading full weblog file to keep all raw data for the second tab
                 logs_df = pd.read_excel(weblog_file)
                 master_df = pd.read_excel(master_file)
                 critical_df = pd.read_excel(critical_file)
 
-                # Clean headers
                 logs_df.columns = logs_df.columns.str.strip()
                 master_df.columns = master_df.columns.str.strip()
                 critical_df.columns = critical_df.columns.str.strip()
@@ -83,7 +82,7 @@ if st.button("Generate Report"):
                 master_df['Zone'] = master_df['Zone'].astype(str).str.strip()
 
                 # ==========================================
-                # 4. CRITICAL SEARCH PREP & ACTION EXTRACTION
+                # 4. CRITICAL SEARCH PREP & EXTRACTION
                 # ==========================================
                 critical_df['Grp'] = critical_df['Grp'].astype(str).str.strip().str.upper()
                 critical_filtered = critical_df[critical_df['Grp'].isin(['F3', 'CRITICAL'])]
@@ -118,6 +117,7 @@ if st.button("Generate Report"):
                     
                     return 'OTHER'
 
+                # Add Action column directly to the raw dataframe for the second tab
                 logs_df['Action'] = logs_df['description'].apply(lambda x: extract_action(x, critical_keywords))
 
                 # ==========================================
@@ -174,7 +174,6 @@ if st.button("Generate Report"):
                 final_df.rename(columns={'Zone': 'Type'}, inplace=True)
                 final_df['Remark'] = ''
 
-                # --- NEW REVISED COLUMN ORDER ---
                 final_columns = [
                     'PARTY_COMPANY_NAME', 'Type', 'Remark', 'Sales_Person', 'Critical_Search', 
                     'Detail', 'EXCEL', 'MEDIA', 'Layout', 'NEW ARRIVAL', 'TWIN STONES', 
@@ -183,12 +182,11 @@ if st.button("Generate Report"):
                 final_df = final_df[final_columns]
 
                 # ==========================================
-                # 7. WRITE TO MULTI-SHEET EXCEL BUFFER
+                # 7. WRITE TO IN-MEMORY MULTI-SHEET EXCEL
                 # ==========================================
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     final_df.to_excel(writer, sheet_name='Report', index=False)
-                    # Write raw weblog data to the second tab
                     logs_df.to_excel(writer, sheet_name='Weblog Data', index=False)
                 output.seek(0)
 
@@ -221,7 +219,6 @@ if st.button("Generate Report"):
                         continue 
 
                     type_val = str(ws_report.cell(row=row_num, column=type_col_index).value).upper()
-                    
                     if 'RED' in type_val: hex_code = 'FF0000'
                     elif 'ORANGE' in type_val: hex_code = 'FFA500'
                     elif 'GREEN' in type_val: hex_code = '00FF00'
@@ -249,66 +246,69 @@ if st.button("Generate Report"):
                         if ip_val >= 5:
                             ws_report.cell(row=row_num, column=ip_index).fill = fill_style
 
-                    # --- ADD HYPERLINKS TO ACTION COUNTS ---
-                    # Clicking any number > 0 jumps directly to the Weblog Data tab
+                    # Hyperlinks for Action Counts
                     for idx in action_indices:
                         cell_val = ws_report.cell(row=row_num, column=idx).value or 0
                         if cell_val > 0:
                             ws_report.cell(row=row_num, column=idx).hyperlink = "#'Weblog Data'!A1"
-                            ws_report.cell(row=row_num, column=idx).font = Font(color="0000FF", underline=True)
+                            # Using "single" underline prevents the openpyxl crash
+                            ws_report.cell(row=row_num, column=idx).font = Font(color="0000FF", underline="single")
 
                 ws_report.delete_cols(color_col_index)
                 ws_report.freeze_panes = 'A2' 
 
-                # --- STYLE SHEET 2: WEBLOG DATA ---
-                ws_weblog = wb['Weblog Data']
-                headers_weblog = [cell.value for cell in ws_weblog[1]]
-                action_col_idx = headers_weblog.index('Action') + 1 if 'Action' in headers_weblog else None
-                
-                # Soft Yellow fill for Critical Search rows
-                critical_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type='solid')
-                
-                if action_col_idx:
-                    for row_num in range(2, ws_weblog.max_row + 1):
-                        if ws_weblog.cell(row=row_num, column=action_col_idx).value == 'Critical_Search':
-                            for col_idx in range(1, ws_weblog.max_column + 1):
-                                ws_weblog.cell(row=row_num, column=col_idx).fill = critical_fill
-                                
-                # Enable AutoFilter on the Weblog Data tab for instant manual filtering
-                ws_weblog.auto_filter.ref = ws_weblog.dimensions
-                ws_weblog.freeze_panes = 'A2'
-
-                # --- GLOBAL CELL FORMATTING (Borders & Alignments) ---
+                # --- FORMATTING (Report Tab Only) ---
                 center_align = Alignment(horizontal='center', vertical='center')
                 thin_border = Border(left=Side(style='thin', color='000000'), right=Side(style='thin', color='000000'),
                                      top=Side(style='thin', color='000000'), bottom=Side(style='thin', color='000000'))
                 header_font = Font(bold=True)
                 header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid") 
 
-                for ws in [ws_report, ws_weblog]:
-                    current_headers = [cell.value for cell in ws[1]]
-                    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-                        for cell in row:
-                            cell.alignment = center_align
-                            cell.border = thin_border
-                            if ws == ws_report and cell.row > 1 and cell.column <= len(current_headers) and current_headers[cell.column - 1] == 'AMT':
-                                cell.number_format = '#,##0.00'
-                            if cell.row == 1:
-                                cell.font = header_font
-                                cell.fill = header_fill
+                current_headers = [cell.value for cell in ws_report[1]]
+                for row in ws_report.iter_rows(min_row=1, max_row=ws_report.max_row, min_col=1, max_col=ws_report.max_column):
+                    for cell in row:
+                        cell.alignment = center_align
+                        cell.border = thin_border
+                        if cell.row > 1 and cell.column <= len(current_headers) and current_headers[cell.column - 1] == 'AMT':
+                            cell.number_format = '#,##0.00'
+                        if cell.row == 1:
+                            cell.font = header_font
+                            cell.fill = header_fill
 
-                    # Auto-fit column widths
-                    for col in ws.columns:
-                        max_length = 0
-                        column_letter = col[0].column_letter 
-                        for cell in col:
-                            try:
-                                if len(str(cell.value)) > max_length:
-                                    max_length = len(str(cell.value))
-                            except: pass
-                        ws.column_dimensions[column_letter].width = min(max_length + 3, 50) # Capped at 50 to prevent overly wide columns
+                for col in ws_report.columns:
+                    max_length = 0
+                    column_letter = col[0].column_letter 
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except: pass
+                    ws_report.column_dimensions[column_letter].width = min(max_length + 3, 50) 
 
-                # Save final workbook to memory
+                # --- STYLE SHEET 2: WEBLOG DATA (Raw Data) ---
+                ws_weblog = wb['Weblog Data']
+                headers_weblog = [cell.value for cell in ws_weblog[1]]
+                
+                # AutoFilter applied for easy manual filtering upon jump
+                ws_weblog.auto_filter.ref = ws_weblog.dimensions
+                ws_weblog.freeze_panes = 'A2'
+                
+                # Highlight Critical Search Rows (Soft Yellow)
+                if 'Action' in headers_weblog:
+                    action_col_idx = headers_weblog.index('Action') + 1
+                    critical_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type='solid')
+                    
+                    for row_num in range(2, ws_weblog.max_row + 1):
+                        if ws_weblog.cell(row=row_num, column=action_col_idx).value == 'Critical_Search':
+                            for col_idx in range(1, ws_weblog.max_column + 1):
+                                ws_weblog.cell(row=row_num, column=col_idx).fill = critical_fill
+
+                for cell in ws_weblog[1]:
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = center_align
+
+                # Save final styled workbook
                 final_output = io.BytesIO()
                 wb.save(final_output)
                 final_output.seek(0)
