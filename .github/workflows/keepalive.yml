@@ -1,0 +1,26 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    # Every 6 hours, at minute 17
+    - cron: "17 */6 * * *"
+
+  # Allows manual testing from GitHub Actions
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Streamlit app
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 90 \
+            --retry 3 \
+            "https://webactivityreport-sw2wddocnegmsucelhpwje.streamlit.app/" \
+            > /dev/null
