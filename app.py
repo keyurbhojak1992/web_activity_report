@@ -14,7 +14,7 @@ st.set_page_config(page_title="Diamond WebLog Processor", layout="centered")
 st.title("💎 Weblog Activity Report Generator")
 st.caption("Memory-safe Excel export build")
 
-FILL_HIGHEST_ACTION = False
+FILL_HIGHEST_ACTION = True
 FILL_TYPE_COLUMN = True
 FILL_IP_COUNT = False
 OUTPUT_FILE_NAME = "Weblog Report.xlsx"
