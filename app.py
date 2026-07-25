@@ -108,14 +108,14 @@ def copy_worksheet_as_is(source_ws, target_wb, target_title="Weblog Data"):
 # ==========================================
 # 1. UI & CONTROL FLAGS
 # ==========================================
-st.set_page_config(page_title="Diamond Sales Log Processor", layout="centered")
-st.title("💎 Sales Action Report Generator")
+st.set_page_config(page_title="Diamond Web Log Processor", layout="centered")
+st.title("💎 Web Action Report Generator")
 
 # --- CONTROL BUTTONS ---
 FILL_HIGHEST_ACTION = True  # If True, highlights the highest count action cells
 FILL_TYPE_COLUMN = True      # If True, highlights the 'Type' column
 FILL_IP_COUNT = False        # If True, highlights the 'IP Counts' column if >= 5
-OUTPUT_FILE_NAME = 'Report.xlsx'
+OUTPUT_FILE_NAME = 'Web_Log_Report.xlsx'
 # ----------------------------------------------
 
 # ==========================================
