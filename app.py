@@ -6,6 +6,7 @@ import streamlit as st
 import threading
 import time
 import requests
+from copy import copy
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
@@ -28,6 +29,81 @@ if 'keep_awake_thread' not in st.session_state:
     thread = threading.Thread(target=ping_server, daemon=True)
     thread.start()
     st.session_state['keep_awake_thread'] = True
+
+
+# ==========================================
+# WORKSHEET COPY HELPER
+# ==========================================
+def copy_worksheet_as_is(source_ws, target_wb, target_title="Weblog Data"):
+    """Copy a worksheet into another workbook while retaining its data and layout."""
+    if target_title in target_wb.sheetnames:
+        del target_wb[target_title]
+
+    target_ws = target_wb.create_sheet(title=target_title)
+
+    # Copy cell values/formulas and cell-level formatting.
+    for row in source_ws.iter_rows():
+        for source_cell in row:
+            target_cell = target_ws[source_cell.coordinate]
+            target_cell.value = source_cell.value
+
+            if source_cell.has_style:
+                # Copy style components separately so openpyxl registers them
+                # correctly in the destination workbook's style table.
+                target_cell.font = copy(source_cell.font)
+                target_cell.fill = copy(source_cell.fill)
+                target_cell.border = copy(source_cell.border)
+                target_cell.alignment = copy(source_cell.alignment)
+                target_cell.number_format = source_cell.number_format
+                target_cell.protection = copy(source_cell.protection)
+            if source_cell.hyperlink:
+                target_cell._hyperlink = copy(source_cell.hyperlink)
+            if source_cell.comment:
+                target_cell.comment = copy(source_cell.comment)
+
+    # Copy merged cells.
+    for merged_range in source_ws.merged_cells.ranges:
+        target_ws.merge_cells(str(merged_range))
+
+    # Copy column widths and column visibility/settings.
+    for column_letter, source_dimension in source_ws.column_dimensions.items():
+        target_dimension = target_ws.column_dimensions[column_letter]
+        target_dimension.width = source_dimension.width
+        target_dimension.hidden = source_dimension.hidden
+        target_dimension.bestFit = source_dimension.bestFit
+        target_dimension.outlineLevel = source_dimension.outlineLevel
+        target_dimension.collapsed = source_dimension.collapsed
+
+    # Copy row heights and row visibility/settings.
+    for row_number, source_dimension in source_ws.row_dimensions.items():
+        target_dimension = target_ws.row_dimensions[row_number]
+        target_dimension.height = source_dimension.height
+        target_dimension.hidden = source_dimension.hidden
+        target_dimension.outlineLevel = source_dimension.outlineLevel
+        target_dimension.collapsed = source_dimension.collapsed
+
+    # Copy common worksheet-level display and print settings.
+    target_ws.freeze_panes = source_ws.freeze_panes
+    target_ws.auto_filter.ref = source_ws.auto_filter.ref
+    target_ws.sheet_format = copy(source_ws.sheet_format)
+    target_ws.sheet_properties = copy(source_ws.sheet_properties)
+    target_ws.page_margins = copy(source_ws.page_margins)
+    target_ws.page_setup = copy(source_ws.page_setup)
+    target_ws.print_options = copy(source_ws.print_options)
+    target_ws.sheet_view.showGridLines = source_ws.sheet_view.showGridLines
+    target_ws.sheet_view.zoomScale = source_ws.sheet_view.zoomScale
+    target_ws.sheet_view.zoomScaleNormal = source_ws.sheet_view.zoomScaleNormal
+
+    if source_ws.print_area:
+        target_ws.print_area = source_ws.print_area
+    if source_ws.print_title_rows:
+        target_ws.print_title_rows = source_ws.print_title_rows
+    if source_ws.print_title_cols:
+        target_ws.print_title_cols = source_ws.print_title_cols
+
+    # Keep the added sheet visible in the generated report.
+    target_ws.sheet_state = 'visible'
+    return target_ws
 
 # ==========================================
 # 1. UI & CONTROL FLAGS
@@ -273,6 +349,23 @@ if st.button("Generate Report"):
                                 max_length = len(str(cell.value))
                         except: pass
                     ws.column_dimensions[column_letter].width = (max_length + 2) 
+
+                # ==========================================
+                # 8. ADD ORIGINAL WEBLOG DATA SHEET
+                # ==========================================
+                # Reset the uploaded file pointer because pandas has already read it.
+                weblog_file.seek(0)
+                weblog_wb = load_workbook(weblog_file, data_only=False)
+
+                # Prefer a source sheet already named "Weblog Data"; otherwise copy
+                # the first active sheet and name it "Weblog Data" in the report.
+                source_weblog_ws = (
+                    weblog_wb['Weblog Data']
+                    if 'Weblog Data' in weblog_wb.sheetnames
+                    else weblog_wb.active
+                )
+                copy_worksheet_as_is(source_weblog_ws, wb, target_title='Weblog Data')
+                weblog_wb.close()
 
                 final_output = io.BytesIO()
                 wb.save(final_output)
