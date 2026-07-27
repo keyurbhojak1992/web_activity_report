@@ -202,6 +202,5 @@ elif isinstance(result, BuildResult):
 
 st.divider()
 st.caption(
-    "Developed by Keyur Bhojak for Web-Activity analysis.
-                © 2026 Weblog Tracker. All rights reserved."
+    "Developed by Keyur Bhojak for Web-Activity analysis. © 2026 Weblog Tracker. All rights reserved."
 )
