@@ -15,7 +15,7 @@ from report_builder import (
 
 
 st.set_page_config(
-    page_title="Diamond Sales Log Processor",
+    page_title="Diamond Web-Activity Log Processor",
     page_icon="💎",
     layout="centered",
 )
@@ -51,7 +51,7 @@ def _clear_generated_report() -> None:
     st.session_state.pop("generated_signature", None)
 
 
-st.title("💎 Sales Action Report Generator")
+st.title("💎 Web Action Report Generator")
 st.caption(
     "Creates the sales action report, counts each matched critical shape, and keeps the uploaded Weblog worksheet in the output workbook."
 )
@@ -202,5 +202,6 @@ elif isinstance(result, BuildResult):
 
 st.divider()
 st.caption(
-    "Recommended deployment: Python 3.12 with the pinned package versions in requirements.txt."
+    "Developed by Keyur Bhojak for Web-Activity analysis.
+                © 2026 Weblog Tracker. All rights reserved."
 )
