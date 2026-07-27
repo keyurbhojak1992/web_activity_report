@@ -53,7 +53,7 @@ def _clear_generated_report() -> None:
 
 st.title("💎 Web Action Report Generator")
 st.caption(
-    "Creates the sales action report, counts each matched critical shape, and keeps the uploaded Weblog worksheet in the output workbook."
+    "Creates the Web action report, counts each matched critical shape, and keeps the uploaded Weblog worksheet in the output workbook."
 )
 
 with st.form("report_inputs", clear_on_submit=False):
